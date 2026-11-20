@@ -154,7 +154,7 @@ async function load(){
   try{
     const r = await fetch(API_URL, {cache:"no-store"});
     apply(await r.json());
-  }catch(e){ status("신청 현황을 불러오지 못했습니다. 잠시 후 새로고침해 주세요."); }
+  }catch(e){ status("신청 현황을 불러오지 못했습니다(" + e.message + "). 웹 앱 배포 설정을 확인해 주세요."); }
 }
 
 async function post(body){
@@ -221,14 +221,18 @@ function renderNeeds(){
   tb.querySelectorAll("input").forEach(inp=>inp.addEventListener("change", ()=>saveNeed(inp)));
 }
 
+let needSaving = Promise.resolve();
 async function saveNeed(inp){
-  if(!ready){toast("아직 연결되지 않았습니다.");return;}
+  if(!ready){toast("아직 연결되지 않았습니다. 새로고침해 주세요.");return;}
   const [cls,subj]=inp.dataset.key.split("|");
   const v = inp.value==="" ? "" : Math.max(0, Math.floor(Number(inp.value)));
-  try{
-    const res = await post({action:"setNeed", cls, subj, value:v});
-    toast(res.error || `${cls} ${subj} 결손 시수 저장됨`);
-  }catch(e){ toast("저장하지 못했습니다. 다시 입력해 주세요."); }
+  const o = Object.assign({}, needs[cls]||{}); if(v==="") delete o[subj]; else o[subj]=v;
+  needs = Object.assign({}, needs, {[cls]:o}); renderPicker(); renderNeeds();
+  needSaving = needSaving.then(async()=>{
+    try{ const res = await post({action:"setNeed", cls, subj, value:v}); toast(res.error || `${cls} ${subj} 결손 시수 저장됨`); }
+    catch(e){ toast("결손 시수를 저장하지 못했습니다: " + e.message); }
+  });
+  await needSaving;
 }
 
 function renderCal(){
@@ -277,7 +281,8 @@ function renderCal(){
 function renderAll(){ renderPicker(); renderNeeds(); renderCal(); }
 
 async function claim(id, day, p){
-  if(!ready){toast("아직 연결되지 않았습니다.");return;}
+  if(!ready){toast("아직 연결되지 않았습니다. 새로고침해 주세요.");return;}
+  await needSaving;
   if(!sel.cls){toast("먼저 위에서 우리 반을 선택하세요.");return;}
   if(!sel.subj){toast("과목(과학/체육)을 먼저 선택하세요.");return;}
   if(need(sel.cls,sel.subj)-usedCount(sel.cls,sel.subj)<=0){toast(`${sel.cls} ${sel.subj} 남은 시수가 없습니다. 결손 시수를 먼저 입력하세요.`);return;}
@@ -287,7 +292,7 @@ async function claim(id, day, p){
   try{
     const res = await post({action:"claim", slotId:id, date:day.date, period:p, cls:sel.cls, subj:sel.subj});
     toast(res.error || `${day.d.getMonth()+1}/${day.d.getDate()} ${p}교시 ${sel.cls} ${sel.subj} 신청 완료`);
-  }catch(e){ bookings=prev; renderAll(); toast("저장하지 못했습니다. 다시 눌러 주세요."); }
+  }catch(e){ bookings=prev; renderAll(); toast("신청을 저장하지 못했습니다: " + e.message); }
   finally{ busy=false; }
 }
 
