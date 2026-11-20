@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>보강 시간 신청표</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#fff; --ink:#1f2328; --sub:#6b6f76; --line:#e3e1db;
+    --accent:#2f6f5e; --accent-soft:#e3efe9; --warn:#b4532a;
+    --c31:#3b6fb6; --c32:#2f8a6a; --c33:#8a5bb0; --c41:#c0662b; --c42:#b8434f; --c43:#7a7a2a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 80px}
+  h1{font-size:22px;margin:0 0 4px}
+  .lead{color:var(--sub);margin:0 0 18px;font-size:14px}
+  .status{font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:16px;background:#fff6e5;color:#8a5a00;display:none}
+  .status.show{display:block}
+  section.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:18px}
+  .box h2{font-size:16px;margin:0 0 10px}
+  .step{display:inline-block;background:var(--accent);color:#fff;border-radius:50%;width:22px;height:22px;text-align:center;line-height:22px;font-size:13px;margin-right:6px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .pick{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 16px;font:inherit;cursor:pointer;font-weight:500}
+  .pick.on{color:#fff;border-color:transparent}
+  .grade-label{font-size:13px;color:var(--sub);min-width:44px}
+  .subjrow{margin-top:10px}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center}
+  th{font-weight:500;color:var(--sub);font-size:13px}
+  td.cls{font-weight:700;text-align:left}
+  input[type=number]{width:70px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font:inherit;text-align:center}
+  .rem{font-weight:700}
+  .rem.zero{color:var(--sub);font-weight:400}
+  .week{margin-bottom:14px}
+  .week h3{font-size:13px;color:var(--sub);font-weight:500;margin:0 0 6px}
+  .days{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .day{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+  .day.past{opacity:.45}
+  .day .d{font-weight:700;font-size:14px;margin-bottom:6px}
+  .day .d span{font-weight:400;color:var(--sub);font-size:12px;margin-left:4px}
+  .slot{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:5px;padding:7px 9px;border-radius:7px;border:1.5px dashed #b9c9c2;background:var(--accent-soft);font:inherit;font-size:13px;cursor:pointer;text-align:left;color:var(--ink)}
+  .slot:hover:not(:disabled){border-style:solid;border-color:var(--accent)}
+  .slot .who{font-size:12px}
+  .slot.taken{border:1.5px solid transparent;color:#fff;cursor:not-allowed}
+  .slot.mine{cursor:pointer;box-shadow:0 0 0 2px #fff inset}
+  .slot:disabled{cursor:not-allowed}
+  .slot.pastfree{background:#eee;border-color:#ddd;color:#999}
+  .legend{font-size:12px;color:var(--sub);margin-top:8px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+  .toast.show{opacity:1}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:12px;padding:20px;max-width:340px;width:100%}
+  .modal p{margin:0 0 16px}
+  .modal .btns{display:flex;gap:8px;justify-content:flex-end}
+  .btn{font:inherit;padding:7px 14px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--warn);color:#fff;border-color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>보강 시간 신청표</h1>
+  <p class="lead">반을 고르고 결손 시수를 입력한 뒤, 아래 달력에서 원하는 보강 시간을 누르세요. 누르는 즉시 저장되고 모든 선생님 화면에서 그 시간은 잠깁니다.</p>
+  <div class="status" id="status"></div>
+
+  <section class="box">
+    <h2><span class="step">1</span>우리 반 선택</h2>
+    <div class="row"><span class="grade-label">3학년</span><div class="row" id="g3"></div></div>
+    <div class="row" style="margin-top:8px"><span class="grade-label">4학년</span><div class="row" id="g4"></div></div>
+    <div class="row subjrow" id="subjrow"></div>
+  </section>
+
+  <section class="box">
+    <h2><span class="step">2</span>결손 시수 입력 (각 반 선생님이 직접 입력)</h2>
+    <table>
+      <thead><tr><th style="text-align:left">반</th><th>과목</th><th>결손 시수</th><th>보강 신청</th><th>남은 시수</th></tr></thead>
+      <tbody id="needs"></tbody>
+    </table>
+  </section>
+
+  <section class="box">
+    <h2><span class="step">3</span>보강 가능 시간</h2>
+    <div id="cal"></div>
+    <div class="legend">초록 점선 칸 = 신청 가능 · 색 칸 = 이미 신청됨 · 우리 반이 신청한 칸을 다시 누르면 취소할 수 있습니다 · 12/25, 1/1은 공휴일이라 제외했습니다.</div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modalBg"><div class="modal"><p id="modalText"></p><div class="btns"><button class="btn" id="mNo">닫기</button><button class="btn primary" id="mYes">신청 취소</button></div></div></div>
+
+<script>
+
+const CLASSES = [
+  {id:"3-1", grade:3, subjects:["과학","체육"], color:"var(--c31)"},
+  {id:"3-2", grade:3, subjects:["과학","체육"], color:"var(--c32)"},
+  {id:"3-3", grade:3, subjects:["과학","체육"], color:"var(--c33)"},
+  {id:"4-1", grade:4, subjects:["체육"], color:"var(--c41)"},
+  {id:"4-2", grade:4, subjects:["체육"], color:"var(--c42)"},
+  {id:"4-3", grade:4, subjects:["체육"], color:"var(--c43)"},
+];
+const CLS = Object.fromEntries(CLASSES.map(c=>[c.id,c]));
+const HOLIDAYS = {"2026-12-25":true, "2027-01-01":true};
+const WD = ["일","월","화","수","목","금","토"];
+
+function ymd(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+
+function buildSlots(){
+  const out = []; // [{date, label, periods:[...]}]
+  const start = new Date(2026,10,23), end = new Date(2027,0,7);
+  const endA = new Date(2026,11,12), startB = new Date(2026,11,14);
+  const extra = {"2026-11-24":[2], "2026-12-09":[1,2], "2026-12-15":[1,2]};
+  for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+    const key = ymd(d), wd = d.getDay();
+    if(HOLIDAYS[key]) continue;
+    const p = new Set();
+    if(d<=endA && (wd===2||wd===5)){p.add(5);p.add(6);}
+    if(d>=startB){
+      if([1,2,4,5].includes(wd)){p.add(5);p.add(6);}
+      if(wd===3) p.add(5);
+    }
+    (extra[key]||[]).forEach(x=>p.add(x));
+    if(p.size) out.push({date:key, d:new Date(d), periods:[...p].sort((a,b)=>a-b)});
+  }
+  return out;
+}
+const DAYS = buildSlots();
+const TODAY = ymd(new Date());
+
+let sel = {cls:null, subj:null};
+try{ const s = JSON.parse(localStorage.getItem("bogang-sel")||"null"); if(s && CLS[s.cls]) sel = s; }catch(e){}
+function saveSel(){ try{localStorage.setItem("bogang-sel", JSON.stringify(sel));}catch(e){} }
+
+// ▼▼▼ 구글 앱스 스크립트 웹 앱 주소를 따옴표 안에 붙여 넣으세요 ▼▼▼
+const API_URL = "https://script.google.com/macros/s/AKfycbw_MwyllXLCyxQvDWsIlfaqCqVbmnQjUH5fWzTxT2v8IL4uLWKxQIupHpPL4OdQXBf1/exec";
+// ▲▲▲
+
+let bookings = {};   // slotId -> {cls, subj}
+let needs = {};      // cls -> {과학:n, 체육:n}
+let ready = false, busy = false;
+
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2600);}
+function status(msg){const s=document.getElementById("status");if(msg){s.textContent=msg;s.classList.add("show");}else s.classList.remove("show");}
+
+function usedCount(cls, subj){ let n=0; for(const k in bookings){const b=bookings[k]; if(b.cls===cls && b.subj===subj) n++;} return n; }
+function need(cls, subj){ const v = needs[cls] && needs[cls][subj]; return Number.isFinite(v) ? v : 0; }
+
+function apply(res){
+  if(res && res.bookings){ bookings=res.bookings; needs=res.needs||{}; ready=true; status(""); renderAll(); }
+}
+
+async function load(){
+  try{
+    const r = await fetch(API_URL, {cache:"no-store"});
+    apply(await r.json());
+  }catch(e){ status("신청 현황을 불러오지 못했습니다. 잠시 후 새로고침해 주세요."); }
+}
+
+async function post(body){
+  const r = await fetch(API_URL, {method:"POST", body:JSON.stringify(body)});
+  const res = await r.json();
+  apply(res);
+  return res;
+}
+
+function renderPicker(){
+  for(const g of [3,4]){
+    const el = document.getElementById("g"+g); el.innerHTML="";
+    CLASSES.filter(c=>c.grade===g).forEach(c=>{
+      const b=document.createElement("button"); b.className="pick"+(sel.cls===c.id?" on":"");
+      b.textContent=c.id.replace("-","학년 ")+"반";
+      if(sel.cls===c.id) b.style.background=c.color;
+      b.onclick=()=>{ sel.cls=c.id; sel.subj = c.subjects.length===1 ? c.subjects[0] : (c.subjects.includes(sel.subj)?sel.subj:null); saveSel(); renderAll(); };
+      el.appendChild(b);
+    });
+  }
+  const sr = document.getElementById("subjrow"); sr.innerHTML="";
+  if(!sel.cls) return;
+  const c = CLS[sel.cls];
+  const lab=document.createElement("span"); lab.className="grade-label"; lab.textContent="과목"; sr.appendChild(lab);
+  c.subjects.forEach(s=>{
+    const b=document.createElement("button"); b.className="pick"+(sel.subj===s?" on":"");
+    if(sel.subj===s) b.style.background=c.color;
+    b.textContent=s;
+    b.onclick=()=>{sel.subj=s; saveSel(); renderAll();};
+    sr.appendChild(b);
+  });
+  const info=document.createElement("span"); info.style.cssText="font-size:13px;color:var(--sub);margin-left:6px";
+  if(sel.subj){ const r=need(sel.cls,sel.subj)-usedCount(sel.cls,sel.subj); info.textContent=`→ ${sel.cls} ${sel.subj} 남은 시수 ${Math.max(r,0)}시간`; }
+  else info.textContent="3학년은 과목을 골라 주세요";
+  sr.appendChild(info);
+}
+
+function renderNeeds(){
+  const tb = document.getElementById("needs");
+  const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.key;
+  if(focused && tb.children.length){
+    tb.querySelectorAll("tr").forEach(tr=>{
+      const cls=tr.dataset.cls, subj=tr.dataset.subj;
+      tr.querySelector(".used").textContent=usedCount(cls,subj);
+      const r=need(cls,subj)-usedCount(cls,subj); const rc=tr.querySelector(".rem");
+      rc.textContent=Math.max(r,0); rc.className="rem"+(r<=0?" zero":"");
+    });
+    return;
+  }
+  tb.innerHTML="";
+  CLASSES.forEach(c=>{
+    c.subjects.forEach((s,i)=>{
+      const tr=document.createElement("tr"); tr.dataset.cls=c.id; tr.dataset.subj=s;
+      const u=usedCount(c.id,s), n=need(c.id,s), r=n-u;
+      const val = needs[c.id] && Number.isFinite(needs[c.id][s]) ? needs[c.id][s] : "";
+      tr.innerHTML = `${i===0?`<td class="cls" rowspan="${c.subjects.length}" style="color:${c.color}">${c.id}</td>`:""}
+        <td>${s}</td>
+        <td><input type="number" min="0" max="60" value="${val}" placeholder="-" data-key="${c.id}|${s}"></td>
+        <td class="used">${u}</td>
+        <td class="rem${r<=0?" zero":""}">${Math.max(r,0)}</td>`;
+      tb.appendChild(tr);
+    });
+  });
+  tb.querySelectorAll("input").forEach(inp=>inp.addEventListener("change", ()=>saveNeed(inp)));
+}
+
+async function saveNeed(inp){
+  if(!ready){toast("아직 연결되지 않았습니다.");return;}
+  const [cls,subj]=inp.dataset.key.split("|");
+  const v = inp.value==="" ? "" : Math.max(0, Math.floor(Number(inp.value)));
+  try{
+    const res = await post({action:"setNeed", cls, subj, value:v});
+    toast(res.error || `${cls} ${subj} 결손 시수 저장됨`);
+  }catch(e){ toast("저장하지 못했습니다. 다시 입력해 주세요."); }
+}
+
+function renderCal(){
+  const cal=document.getElementById("cal"); cal.innerHTML="";
+  const weeks=[]; let cur=null, curKey=null;
+  DAYS.forEach(day=>{
+    const m=new Date(day.d); const off=(m.getDay()+6)%7; m.setDate(m.getDate()-off);
+    const k=ymd(m);
+    if(k!==curKey){curKey=k; cur={mon:m, days:[]}; weeks.push(cur);}
+    cur.days.push(day);
+  });
+  weeks.forEach(w=>{
+    const sec=document.createElement("div"); sec.className="week";
+    const fri=new Date(w.mon); fri.setDate(fri.getDate()+4);
+    sec.innerHTML=`<h3>${w.mon.getMonth()+1}/${w.mon.getDate()} ~ ${fri.getMonth()+1}/${fri.getDate()} 주</h3>`;
+    const grid=document.createElement("div"); grid.className="days";
+    w.days.forEach(day=>{
+      const past = day.date < TODAY;
+      const card=document.createElement("div"); card.className="day"+(past?" past":"");
+      card.innerHTML=`<div class="d">${day.d.getMonth()+1}월 ${day.d.getDate()}일<span>(${WD[day.d.getDay()]})</span></div>`;
+      day.periods.forEach(p=>{
+        const id=day.date+"_p"+p; const b=bookings[id];
+        const btn=document.createElement("button"); btn.className="slot";
+        if(b){
+          const c=CLS[b.cls]; const mine = sel.cls===b.cls;
+          btn.classList.add("taken"); if(mine) btn.classList.add("mine");
+          btn.style.background = c ? c.color : "#888";
+          btn.innerHTML=`<span>${p}교시</span><span class="who">${b.cls}${b.subj?" "+b.subj:""}</span>`;
+          if(mine && !past){ btn.style.cursor="pointer"; btn.onclick=()=>askCancel(id,b,day,p); }
+          else btn.disabled=true;
+        } else if(past){
+          btn.classList.add("pastfree"); btn.disabled=true;
+          btn.innerHTML=`<span>${p}교시</span><span class="who">지남</span>`;
+        } else {
+          btn.innerHTML=`<span>${p}교시</span><span class="who">신청 가능</span>`;
+          btn.onclick=()=>claim(id, day, p);
+        }
+        card.appendChild(btn);
+      });
+      grid.appendChild(card);
+    });
+    sec.appendChild(grid); cal.appendChild(sec);
+  });
+}
+
+function renderAll(){ renderPicker(); renderNeeds(); renderCal(); }
+
+async function claim(id, day, p){
+  if(!ready){toast("아직 연결되지 않았습니다.");return;}
+  if(!sel.cls){toast("먼저 위에서 우리 반을 선택하세요.");return;}
+  if(!sel.subj){toast("과목(과학/체육)을 먼저 선택하세요.");return;}
+  if(need(sel.cls,sel.subj)-usedCount(sel.cls,sel.subj)<=0){toast(`${sel.cls} ${sel.subj} 남은 시수가 없습니다. 결손 시수를 먼저 입력하세요.`);return;}
+  if(busy) return; busy=true;
+  const prev = bookings;
+  bookings = Object.assign({}, bookings, {[id]:{cls:sel.cls, subj:sel.subj}}); renderAll();
+  try{
+    const res = await post({action:"claim", slotId:id, date:day.date, period:p, cls:sel.cls, subj:sel.subj});
+    toast(res.error || `${day.d.getMonth()+1}/${day.d.getDate()} ${p}교시 ${sel.cls} ${sel.subj} 신청 완료`);
+  }catch(e){ bookings=prev; renderAll(); toast("저장하지 못했습니다. 다시 눌러 주세요."); }
+  finally{ busy=false; }
+}
+
+let pending=null;
+function askCancel(id,b,day,p){
+  pending={id, cls:b.cls};
+  document.getElementById("modalText").textContent=`${day.d.getMonth()+1}월 ${day.d.getDate()}일 ${p}교시 (${b.cls} ${b.subj||""}) 신청을 취소할까요?`;
+  document.getElementById("modalBg").classList.add("show");
+}
+document.getElementById("mNo").onclick=()=>{pending=null;document.getElementById("modalBg").classList.remove("show");};
+document.getElementById("mYes").onclick=async()=>{
+  document.getElementById("modalBg").classList.remove("show");
+  if(!pending) return; const {id, cls}=pending; pending=null;
+  try{ const res = await post({action:"cancel", slotId:id, cls}); toast(res.error || "신청을 취소했습니다."); }
+  catch(e){ toast("취소하지 못했습니다. 다시 눌러 주세요."); }
+};
+
+renderAll();
+if(API_URL.startsWith("http")){
+  status("저장된 신청 현황을 불러오는 중입니다…");
+  load();
+  setInterval(()=>{ if(!document.hidden && !busy) load(); }, 20000);
+  document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) load(); });
+} else {
+  status("API_URL이 설정되지 않았습니다. index.html 안에 웹 앱 주소를 붙여 넣어 주세요.");
+}
+</script>
+
+</body>
+</html>
